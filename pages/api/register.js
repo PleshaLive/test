@@ -15,28 +15,32 @@ function writeDB(data) {
 
 export default function handler(req, res) {
   if (req.method === 'POST') {
-    const { publicKey, tokenBalance, nickname } = req.body;
+    const { publicKey, nickname, tokenBalance, twitter } = req.body;
 
-    if (!publicKey || tokenBalance === undefined || !nickname) {
-      return res.status(400).json({ error: 'Missing data (publicKey, tokenBalance or nickname)' });
+    // Проверяем обязательные поля
+    if (!publicKey || !nickname || tokenBalance === undefined) {
+      return res
+        .status(400)
+        .json({ error: 'Missing data: publicKey, nickname, or tokenBalance' });
     }
+    // twitter может быть "", это не ошибка.
 
-    // Читаем текущее состояние
+    // Читаем текущее состояние db.json
     const db = readDB();
     const users = db.users || [];
 
-    // Ищем, есть ли уже такой пользователь
+    // Ищем, есть ли уже такой publicKey
     const existingIndex = users.findIndex((u) => u.publicKey === publicKey);
     if (existingIndex === -1) {
-      // Добавляем нового
-      users.push({ publicKey, tokenBalance, nickname });
+      // Добавляем нового пользователя
+      users.push({ publicKey, nickname, twitter, tokenBalance });
     } else {
-      // Обновляем поля
-      users[existingIndex].tokenBalance = tokenBalance;
+      // Обновляем
       users[existingIndex].nickname = nickname;
+      users[existingIndex].twitter = twitter;
+      users[existingIndex].tokenBalance = tokenBalance;
     }
 
-    // Сохраняем обратно
     db.users = users;
     writeDB(db);
 
