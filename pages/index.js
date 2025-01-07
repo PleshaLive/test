@@ -1,5 +1,6 @@
 // pages/index.js
 import { useState, useEffect } from 'react';
+import Link from 'next/link';            // <--- Добавляем импорт Link!
 import { Connection, PublicKey } from '@solana/web3.js';
 
 export default function Home() {
@@ -11,38 +12,41 @@ export default function Home() {
   // Mint вашего токена
   const TOKEN_MINT = "3EnxSbUszY4XPDfmWRJa3jkBUX4Dn8rdh4ZkNQCwpump";
 
-  // Адрес RPC, можно взять любой публичный, например, солановский mainnet-beta
+  // Подставляем ваш Ankr-URL (Mainnet), чтобы считывать баланс:
   const SOLANA_RPC_ENDPOINT = "https://rpc.ankr.com/solana/3226dc3c471ff22f8355da4308ddd4a219b5ad67a62557acde28a539b94a550e";
-  // Или devnet: "https://api.devnet.solana.com"
-  // Зависит от того, где находится ваш токен.
+  // Если у вас токен в Devnet — нужно использовать "https://rpc.ankr.com/solana_devnet/...",
+  // и не забыть переключить Phantom в Devnet.
 
-  // Функция для проверки, есть ли у пользователя Phantom
+  // Проверяем наличие Phantom
   useEffect(() => {
-    if ('solana' in window) {
-      if (window.solana.isPhantom) {
-        setMessage('Phantom найден! Нажмите «Подключить Phantom»');
+    if (typeof window !== 'undefined') {
+      if ('solana' in window) {
+        if (window.solana.isPhantom) {
+          setMessage('Phantom найден! Нажмите «Подключить Phantom»');
+        } else {
+          setMessage('Phantom не обнаружен!');
+        }
       } else {
-        setMessage('Phantom не обнаружен!');
+        setMessage('Phantom не установлен!');
       }
-    } else {
-      setMessage('Phantom не установлен!');
     }
   }, []);
 
-  // Функция — подключаемся к Phantom
+  // Подключаемся к Phantom
   const connectPhantom = async () => {
     try {
       const resp = await window.solana.connect();
       setWalletConnected(true);
-      setPublicKey(resp.publicKey.toString());
+      const pubKeyString = resp.publicKey.toString();
+      setPublicKey(pubKeyString);
       setMessage('Кошелёк подключён!');
 
-      // Теперь получаем баланс токена:
+      // Получаем баланс токена:
       const balance = await getTokenBalance(resp.publicKey);
       setTokenBalance(balance);
 
-      // Отправляем (регестрируем/обновляем) пользователя на бэкенд
-      await registerUser(resp.publicKey.toString(), balance);
+      // Отправляем (регистрируем/обновляем) пользователя на бэкенд
+      await registerUser(pubKeyString, balance);
 
     } catch (error) {
       console.error(error);
@@ -50,22 +54,24 @@ export default function Home() {
     }
   };
 
-  // Функция — получить баланс нужного токена
+  // Получаем баланс нужного токена
   const getTokenBalance = async (userPublicKey) => {
     try {
       const connection = new Connection(SOLANA_RPC_ENDPOINT);
       const tokenAccounts = await connection.getParsedTokenAccountsByOwner(
         userPublicKey,
-        { programId: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") }
+        {
+          programId: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA")
+        }
       );
 
-      // Ищем среди токен-аккаунтов тот, у которого mint == нужному
+      // Ищем среди токен-аккаунтов тот, у которого mint == TOKEN_MINT
       const accountInfo = tokenAccounts.value.find(
         (account) => account.account.data.parsed.info.mint === TOKEN_MINT
       );
 
       if (!accountInfo) {
-        return 0; // у пользователя нет этого токена
+        return 0; // У пользователя нет этого токена
       }
 
       const amount = accountInfo.account.data.parsed.info.tokenAmount.uiAmount;
@@ -76,13 +82,13 @@ export default function Home() {
     }
   };
 
-  // Функция — вызываем наш API /api/register
-  const registerUser = async (publicKey, balance) => {
+  // Регистрируем пользователя (POST-запрос на /api/register)
+  const registerUser = async (pubKeyString, balance) => {
     try {
       const response = await fetch('/api/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ publicKey, tokenBalance: balance }),
+        body: JSON.stringify({ publicKey: pubKeyString, tokenBalance: balance }),
       });
       const data = await response.json();
       if (response.ok) {
@@ -110,9 +116,10 @@ export default function Home() {
           <p>Ваш Public Key: {publicKey}</p>
           <p>Баланс токена {TOKEN_MINT}: {tokenBalance}</p>
           <p>
-            <a href="/leaderboard">
+            {/* Используем <Link> вместо <a> */}
+            <Link href="/leaderboard">
               Перейти на страницу Лидерборда
-            </a>
+            </Link>
           </p>
         </>
       )}
