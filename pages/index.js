@@ -4,68 +4,82 @@ import Link from 'next/link';
 import { Connection, PublicKey } from '@solana/web3.js';
 
 export default function Home() {
-  // --------------------------
-  // Состояния
-  // --------------------------
   const [walletConnected, setWalletConnected] = useState(false);
   const [publicKey, setPublicKey] = useState(null);
   const [tokenBalance, setTokenBalance] = useState(0);
   const [message, setMessage] = useState('');
 
-  // Поля, которые пользователь вводит только после подключения
+  // Поля регистрации
   const [nickname, setNickname] = useState('');
   const [twitter, setTwitter] = useState('');
 
-  // Mint вашего токена (пример из предыдущих сообщений)
-  const TOKEN_MINT = "3EnxSbUszY4XPDfmWRJa3jkBUX4Dn8rdh4ZkNQCwpump";
-  // RPC (Mainnet или Devnet, смотря где ваш токен)
-  const SOLANA_RPC_ENDPOINT = "https://rpc.ankr.com/solana/3226dc3c471ff22f8355da4308ddd4a219b5ad67a62557acde28a539b94a550e";
-  // Или, например: "https://rpc.ankr.com/solana/..."
-  // --------------------------------------------------
+  // Флаг: уже зарегистрирован ли на бэкенде
+  const [isRegistered, setIsRegistered] = useState(false);
+  // Данные о зареганном (ник, твиттер, баланс), если есть
+  const [userInfo, setUserInfo] = useState(null);
 
-  // При загрузке проверяем наличие Phantom
+  // Параметры
+  const TOKEN_MINT = "3EnxSbUszY4XPDfmWRJa3jkBUX4Dn8rdh4ZkNQCwpump";
+  const SOLANA_RPC_ENDPOINT = "https://rpc.ankr.com/solana/3226dc3c471ff22f8355da4308ddd4a219b5ad67a62557acde28a539b94a550e";
+
+  // При загрузке проверяем, есть ли Phantom
   useEffect(() => {
     if (typeof window !== 'undefined') {
       if ('solana' in window && window.solana.isPhantom) {
-        setMessage('Phantom обнаружен, подключите кошелёк!');
+        setMessage('Phantom найден. Подключите кошелёк!');
       } else {
-        setMessage('Установите Phantom-кошелёк, чтобы продолжить');
+        setMessage('Установите Phantom, чтобы продолжить');
       }
     }
   }, []);
 
-  // --------------------------
-  // Функции
-  // --------------------------
-
+  // Подключение к Phantom
   const connectPhantom = async () => {
     try {
       const resp = await window.solana.connect();
       setWalletConnected(true);
       const pubKey = resp.publicKey.toString();
       setPublicKey(pubKey);
-      setMessage(`Кошелёк подключён: ${pubKey}`);
+      setMessage(`Phantom подключён: ${pubKey}`);
 
-      // Читаем баланс
-      const balance = await getTokenBalance(resp.publicKey);
-      setTokenBalance(balance);
+      // Узнаём баланс
+      const bal = await getTokenBalance(resp.publicKey);
+      setTokenBalance(bal);
+
+      // Проверим на бэкенде, есть ли уже пользователь
+      checkUser(pubKey);
     } catch (error) {
       console.error(error);
       setMessage('Ошибка при подключении Phantom');
     }
   };
 
-  // Отключаем кошелёк (локально, сброс состояний)
-  const disconnectPhantom = () => {
-    setWalletConnected(false);
-    setPublicKey(null);
-    setTokenBalance(0);
-    setNickname('');
-    setTwitter('');
-    setMessage('Кошелёк отключён (локально)');
+  // Проверка, есть ли в базе user с таким publicKey
+  const checkUser = async (pubKey) => {
+    try {
+      const res = await fetch(`/api/register?publicKey=${pubKey}`);
+      if (!res.ok) {
+        if (res.status === 404) {
+          // Нет такого пользователя -> isRegistered=false
+          setIsRegistered(false);
+          setUserInfo(null);
+        } else {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+      } else {
+        // Нашли пользователя -> isRegistered=true
+        const data = await res.json();
+        setIsRegistered(true);
+        setUserInfo(data);
+      }
+    } catch (err) {
+      console.error('Ошибка checkUser:', err);
+      setIsRegistered(false);
+      setUserInfo(null);
+    }
   };
 
-  // Получаем баланс
+  // Функция получить баланс
   const getTokenBalance = async (pubKeyObj) => {
     try {
       const connection = new Connection(SOLANA_RPC_ENDPOINT);
@@ -73,14 +87,11 @@ export default function Home() {
         pubKeyObj,
         { programId: new PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA") }
       );
-
-      // Ищем аккаунт с нужным MINT
-      const accountInfo = tokenAccounts.value.find(
+      const accInfo = tokenAccounts.value.find(
         (acc) => acc.account.data.parsed.info.mint === TOKEN_MINT
       );
-      if (!accountInfo) return 0;
-
-      const amount = accountInfo.account.data.parsed.info.tokenAmount.uiAmount;
+      if (!accInfo) return 0;
+      const amount = accInfo.account.data.parsed.info.tokenAmount.uiAmount;
       return amount || 0;
     } catch (err) {
       console.error(err);
@@ -88,17 +99,16 @@ export default function Home() {
     }
   };
 
-  // Регистрируем / Обновляем юзера
+  // Сохранить (регистрация/обновление) на бэкенде
   const handleRegister = async () => {
     if (!publicKey) {
-      setMessage('Сначала подключите кошелёк');
+      setMessage('Подключите кошелёк!');
       return;
     }
     if (!nickname) {
-      setMessage('Введите никнейм');
+      setMessage('Введите ник!');
       return;
     }
-    // twitter может быть пустым, это ок
     try {
       const response = await fetch('/api/register', {
         method: 'POST',
@@ -106,15 +116,24 @@ export default function Home() {
         body: JSON.stringify({
           publicKey,
           nickname,
-          twitter,          // может быть ""
+          twitter,
           tokenBalance
         }),
       });
       const data = await response.json();
-      if (response.ok) {
-        setMessage('Регистрация (обновление) успешна!');
-      } else {
+      if (!response.ok) {
         setMessage('Ошибка при регистрации: ' + data.error);
+      } else {
+        setMessage('Успешная регистрация/обновление!');
+        // Теперь пользователь зарегистрирован
+        setIsRegistered(true);
+        // Обновим userInfo
+        setUserInfo({
+          publicKey,
+          nickname,
+          twitter,
+          tokenBalance
+        });
       }
     } catch (error) {
       console.error(error);
@@ -122,213 +141,116 @@ export default function Home() {
     }
   };
 
-  // --------------------------
-  // Стили (примерно, как на скриншоте)
-  // --------------------------
+  // Отключение кошелька (локально)
+  const disconnectPhantom = () => {
+    setWalletConnected(false);
+    setPublicKey(null);
+    setTokenBalance(0);
+    setMessage('Кошелёк отключён (локально)');
+    setNickname('');
+    setTwitter('');
+    setIsRegistered(false);
+    setUserInfo(null);
+  };
+
+  // ----- Пример простых стилей (упрощённо) -----
   const containerStyle = {
     minHeight: '100vh',
-    background: 'linear-gradient(135deg, #1c1f3f, #3e2d4a)',
+    background: '#1c1f3f',
     color: '#fff',
-    fontFamily: 'Trebuchet MS, sans-serif',
-    padding: 0,
-    margin: 0,
-    overflowX: 'hidden'
+    fontFamily: 'Arial, sans-serif',
+    padding: '40px'
   };
-
-  const headerStyle = {
-    display: 'flex',
-    justifyContent: 'space-between',
-    padding: '20px 40px'
-  };
-
-  const menuStyle = {
-    display: 'flex',
-    gap: '20px'
-  };
-
-  const menuButtonStyle = {
-    border: 'none',
-    background: '#ffdf2d', // Желтоватая кнопка
+  const btnStyle = {
+    display: 'inline-block',
+    marginTop: '10px',
     padding: '10px 20px',
-    borderRadius: '20px',
-    cursor: 'pointer',
-    fontWeight: 'bold'
-  };
-
-  const bigTitleStyle = {
-    fontSize: '4rem',
-    margin: '40px 0 10px 0',
-    textAlign: 'center'
-  };
-
-  const subTitleStyle = {
-    fontSize: '2.5rem',
-    textAlign: 'center'
-  };
-
-  const contentStyle = {
-    display: 'flex',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    marginTop: '30px',
-    flexWrap: 'wrap'
-  };
-
-  const leftSideStyle = {
-    maxWidth: '500px',
-    margin: '20px'
-  };
-
-  const catTextStyle = {
-    fontSize: '1rem',
-    lineHeight: '1.5',
-    marginTop: '20px'
-  };
-
-  const buyButtonStyle = {
-    ...menuButtonStyle,
-    background: '#ffb73d',
-    marginTop: '20px'
-  };
-
-  const connectButtonStyle = {
-    ...menuButtonStyle,
     background: '#74cba1',
-    marginTop: '20px'
+    color: '#000',
+    textDecoration: 'none',
+    borderRadius: '8px',
+    border: 'none',
+    cursor: 'pointer'
   };
-
-  const formStyle = {
-    marginTop: '20px'
-  };
-
   const inputStyle = {
-    width: '100%',
-    padding: '10px',
+    display: 'block',
+    marginTop: '8px',
     marginBottom: '10px',
-    borderRadius: '5px',
-    border: 'none'
-  };
-
-  const astronautStyle = {
-    maxWidth: '400px',
-    margin: '20px'
-  };
-
-  const footerStyle = {
-    textAlign: 'center',
-    marginTop: '40px',
-    paddingBottom: '40px'
+    padding: '8px',
+    width: '300px'
   };
 
   return (
     <div style={containerStyle}>
-      {/* Шапка */}
-      <header style={headerStyle}>
-        <div style={menuStyle}>
-          <button style={menuButtonStyle}>ROADMAP</button>
-          <button style={menuButtonStyle}>ABOUT</button>
-          <button style={menuButtonStyle}>CONTACT</button>
-        </div>
-        {/* "Art Show" кнопка и/или другой элемент */}
-        <button style={menuButtonStyle}>ART SHOW</button>
-      </header>
+      <h1>CAT MOON MEOW (Главная страница)</h1>
+      <p style={{ color: '#ffdf2d' }}>{message}</p>
 
-      {/* Главный блок */}
-      <div>
-        <h1 style={bigTitleStyle}>CAT MOON MEOW</h1>
-        <h2 style={subTitleStyle}>MEOW in Space</h2>
-      </div>
+      {/* Если кошелёк не подключён — кнопка Подключить */}
+      {!walletConnected && (
+        <button style={btnStyle} onClick={connectPhantom}>
+          Подключить Phantom
+        </button>
+      )}
 
-      {/* Контент */}
-      <div style={contentStyle}>
-        <div style={leftSideStyle}>
-          <p style={catTextStyle}>
-            MEOW strives to survive in a world full of chaos and disorder. 
-            He finds his home on the moon, and this story follows his journey 
-            to different planets, highlighting his ups and downs.<br /><br />
-            Join the community and help MEOW navigate this universe. 
-            Together, we will succeed with him!
+      {/* Если кошелёк подключён */}
+      {walletConnected && (
+        <div>
+          <p>
+            <b>Public Key:</b> {publicKey}
+          </p>
+          <p>
+            <b>Баланс токена:</b> {tokenBalance}
           </p>
 
-          {/* Кнопка "Buy" — просто декоративная */}
-          <button style={buyButtonStyle}>BUY</button>
-
-          {/* Сообщение/статус */}
-          <p style={{ marginTop: '20px', color: '#ffdf2d' }}>{message}</p>
-
-          {/* Если кошелёк НЕ подключён — кнопка подключить */}
-          {!walletConnected && (
-            <button style={connectButtonStyle} onClick={connectPhantom}>
-              Подключить Phantom
-            </button>
+          {/* Если уже зарегистрирован — показываем инфо */}
+          {isRegistered && userInfo ? (
+            <div style={{ marginTop: '20px', padding: '10px', background: '#333' }}>
+              <h3>Вы уже зарегистрированы:</h3>
+              <p>
+                <b>Ник:</b> {userInfo.nickname}<br/>
+                <b>Twitter:</b> {userInfo.twitter || '-'}<br/>
+                <b>Баланс:</b> {userInfo.tokenBalance}
+              </p>
+            </div>
+          ) : (
+            // Если не зарегистрирован — показываем поля
+            <div style={{ marginTop: '20px', padding: '10px', background: '#333' }}>
+              <h3>Регистрация</h3>
+              <label>Nickname (обязательно):</label>
+              <input
+                type="text"
+                style={inputStyle}
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
+              />
+              <label>Twitter (необязательно):</label>
+              <input
+                type="text"
+                style={inputStyle}
+                value={twitter}
+                onChange={(e) => setTwitter(e.target.value)}
+              />
+              <button style={btnStyle} onClick={handleRegister}>
+                Сохранить
+              </button>
+            </div>
           )}
 
-          {/* Если кошелёк подключён — показ формы (ник + твиттер + кнопка сохранить) */}
-          {walletConnected && (
-            <>
-              <div style={formStyle}>
-                <label>Nickname (обязательно):</label>
-                <input
-                  style={inputStyle}
-                  type="text"
-                  value={nickname}
-                  onChange={(e) => setNickname(e.target.value)}
-                  placeholder="Введите никнейм"
-                />
-                <label>Twitter (необязательно):</label>
-                <input
-                  style={inputStyle}
-                  type="text"
-                  value={twitter}
-                  onChange={(e) => setTwitter(e.target.value)}
-                  placeholder="@mytwitter"
-                />
-                <button style={connectButtonStyle} onClick={handleRegister}>
-                  Сохранить
-                </button>
-              </div>
+          {/* Кнопка Отключить кошелёк */}
+          <button style={{ ...btnStyle, background: '#f56e6e' }} onClick={disconnectPhantom}>
+            Отключить кошелёк
+          </button>
 
-              {/* Инфа о кошельке и баланс */}
-              <div style={{ marginTop: '20px' }}>
-                <p><b>Public Key:</b> {publicKey}</p>
-                <p><b>Token Balance:</b> {tokenBalance}</p>
-                <button
-                  style={{ ...menuButtonStyle, background: '#f56e6e' }}
-                  onClick={disconnectPhantom}
-                >
-                  Отключить кошелёк
-                </button>
-              </div>
-
-              {/* Ссылка на Лидерборд */}
-              <div style={{ marginTop: '20px' }}>
-                <Link href="/leaderboard">
-                  <button style={{ ...menuButtonStyle, background: '#666' }}>
-                    Перейти в Лидерборд
-                  </button>
-                </Link>
-              </div>
-            </>
-          )}
+          {/* Ссылка на Лидерборд */}
+          <div style={{ marginTop: '20px' }}>
+            <Link href="/leaderboard">
+              <button style={{ ...btnStyle, background: '#666', color: '#fff' }}>
+                Перейти в Лидерборд
+              </button>
+            </Link>
+          </div>
         </div>
-
-        {/* Изображение кота */}
-        <div>
-          {/* Пример: вы можете положить картинку cat-astronaut.png в public/ и затем */}
-          {/* <img src="/cat-astronaut.png" style={astronautStyle} alt="Cat Astronaut" /> */}
-          {/* или использовать публичный URL */}
-          <img
-            src="https://i.ibb.co/rF3tKMB/cat-astronaut.png"
-            style={astronautStyle}
-            alt="Cat Astronaut"
-          />
-        </div>
-      </div>
-
-      {/* "Футер" или пустая подложка */}
-      <div style={footerStyle}>
-        <p>© 2025 Cat Moon Meow</p>
-      </div>
+      )}
     </div>
   );
 }

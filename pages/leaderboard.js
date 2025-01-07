@@ -1,5 +1,5 @@
 // pages/leaderboard.js
-import { useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 
 export default function Leaderboard() {
@@ -23,90 +23,75 @@ export default function Leaderboard() {
       });
   }, []);
 
-  // Немного стилей
   const containerStyle = {
     minHeight: '100vh',
-    background: '#f0f0f0',
+    background: '#1c1f3f',
+    color: '#fff',
     fontFamily: 'Arial, sans-serif',
-    padding: '30px'
+    padding: '40px'
   };
-
-  const cardStyle = {
-    maxWidth: '800px',
-    margin: '0 auto',
-    background: '#fff',
-    padding: '20px',
-    borderRadius: '8px',
-    boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-  };
-
   const titleStyle = {
-    textAlign: 'center',
+    fontSize: '2rem',
     marginBottom: '20px'
   };
-
   const tableStyle = {
     width: '100%',
-    borderCollapse: 'collapse',
-    marginTop: '20px'
+    borderCollapse: 'collapse'
   };
-
   const thStyle = {
     border: '1px solid #ccc',
-    padding: '8px',
-    backgroundColor: '#eee'
+    padding: '10px',
+    background: '#333'
   };
-
   const tdStyle = {
     border: '1px solid #ccc',
-    padding: '8px',
+    padding: '10px',
     textAlign: 'center'
+  };
+  const btnStyle = {
+    display: 'inline-block',
+    marginTop: '20px',
+    padding: '10px 20px',
+    background: '#74cba1',
+    color: '#000',
+    textDecoration: 'none',
+    borderRadius: '8px',
+    border: 'none',
+    cursor: 'pointer'
   };
 
   return (
     <div style={containerStyle}>
-      <div style={cardStyle}>
-        <h1 style={titleStyle}>Лидерборд</h1>
-        {error && <p style={{ color: 'red' }}>{error}</p>}
+      <h1 style={titleStyle}>Лидерборд</h1>
+      {error && <p style={{ color: 'red' }}>{error}</p>}
 
-        <table style={tableStyle}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Место</th>
-              <th style={thStyle}>Ник</th>
-              <th style={thStyle}>Public Key</th>
-              <th style={thStyle}>Баланс токена</th>
+      <table style={tableStyle}>
+        <thead>
+          <tr>
+            <th style={thStyle}>Место</th>
+            <th style={thStyle}>Ник</th>
+            <th style={thStyle}>Twitter</th>
+            <th style={thStyle}>Public Key</th>
+            <th style={thStyle}>Баланс</th>
+          </tr>
+        </thead>
+        <tbody>
+          {users.map((u, i) => (
+            <tr key={u.publicKey}>
+              <td style={tdStyle}>{i + 1}</td>
+              <td style={tdStyle}>{u.nickname}</td>
+              <td style={tdStyle}>{u.twitter || '-'}</td>
+              <td style={tdStyle}>{u.publicKey}</td>
+              <td style={tdStyle}>{u.tokenBalance}</td>
             </tr>
-          </thead>
-          <tbody>
-            {users.map((user, index) => (
-              <tr key={user.publicKey}>
-                <td style={tdStyle}>{index + 1}</td>
-                <td style={tdStyle}>{user.nickname}</td>
-                <td style={tdStyle}>{user.publicKey}</td>
-                <td style={tdStyle}>{user.tokenBalance}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          ))}
+        </tbody>
+      </table>
 
-        <div style={{ marginTop: '20px', textAlign: 'center' }}>
-          <Link href="/">
-            <button
-              style={{
-                padding: '10px 20px',
-                fontSize: '16px',
-                background: '#0070f3',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '5px',
-                cursor: 'pointer'
-              }}
-            >
-              На главную
-            </button>
-          </Link>
-        </div>
+      <div style={{ marginTop: '20px' }}>
+        <Link href="/">
+          <button style={btnStyle}>На главную</button>
+        </Link>
       </div>
     </div>
   );
