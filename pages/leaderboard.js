@@ -23,66 +23,29 @@ export default function Leaderboard() {
       });
   }, []);
 
-  const containerStyle = {
-    minHeight: '100vh',
-    background: '#1c1f3f',
-    color: '#fff',
-    fontFamily: 'Arial, sans-serif',
-    padding: '40px'
-  };
-  const titleStyle = {
-    fontSize: '2rem',
-    marginBottom: '20px'
-  };
-  const tableStyle = {
-    width: '100%',
-    borderCollapse: 'collapse'
-  };
-  const thStyle = {
-    border: '1px solid #ccc',
-    padding: '10px',
-    background: '#333'
-  };
-  const tdStyle = {
-    border: '1px solid #ccc',
-    padding: '10px',
-    textAlign: 'center'
-  };
-  const btnStyle = {
-    display: 'inline-block',
-    marginTop: '20px',
-    padding: '10px 20px',
-    background: '#74cba1',
-    color: '#000',
-    textDecoration: 'none',
-    borderRadius: '8px',
-    border: 'none',
-    cursor: 'pointer'
-  };
-
   return (
-    <div style={containerStyle}>
-      <h1 style={titleStyle}>Лидерборд</h1>
+    <div style={{ padding: '40px', background: '#1c1f3f', color: '#fff', minHeight: '100vh' }}>
+      <h1>Лидерборд (Neon DB)</h1>
       {error && <p style={{ color: 'red' }}>{error}</p>}
 
-      <table style={tableStyle}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', background: '#333' }}>
         <thead>
           <tr>
-            <th style={thStyle}>Место</th>
-            <th style={thStyle}>Ник</th>
-            <th style={thStyle}>Twitter</th>
-            <th style={thStyle}>Public Key</th>
-            <th style={thStyle}>Баланс</th>
+            <th style={{ border: '1px solid #fff', padding: '8px' }}>Место</th>
+            <th style={{ border: '1px solid #fff', padding: '8px' }}>Public Key</th>
+            <th style={{ border: '1px solid #fff', padding: '8px' }}>Ник</th>
+            <th style={{ border: '1px solid #fff', padding: '8px' }}>Twitter</th>
+            <th style={{ border: '1px solid #fff', padding: '8px' }}>Баланс</th>
           </tr>
         </thead>
         <tbody>
           {users.map((u, i) => (
-            <tr key={u.publicKey}>
-              <td style={tdStyle}>{i + 1}</td>
-              <td style={tdStyle}>{u.nickname}</td>
-              <td style={tdStyle}>{u.twitter || '-'}</td>
-              <td style={tdStyle}>{u.publicKey}</td>
-              <td style={tdStyle}>{u.tokenBalance}</td>
+            <tr key={u.public_key}>
+              <td style={{ border: '1px solid #fff', padding: '8px', textAlign: 'center' }}>{i + 1}</td>
+              <td style={{ border: '1px solid #fff', padding: '8px' }}>{u.public_key}</td>
+              <td style={{ border: '1px solid #fff', padding: '8px' }}>{u.nickname}</td>
+              <td style={{ border: '1px solid #fff', padding: '8px' }}>{u.twitter || '-'}</td>
+              <td style={{ border: '1px solid #fff', padding: '8px', textAlign: 'right' }}>{u.token_balance}</td>
             </tr>
           ))}
         </tbody>
@@ -90,7 +53,7 @@ export default function Leaderboard() {
 
       <div style={{ marginTop: '20px' }}>
         <Link href="/">
-          <button style={btnStyle}>На главную</button>
+          <button>На главную</button>
         </Link>
       </div>
     </div>
