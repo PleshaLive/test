@@ -18,7 +18,7 @@ export default function Home() {
   const [userInfo, setUserInfo] = useState(null);
 
   const TOKEN_MINT = "3EnxSbUszY4XPDfmWRJa3jkBUX4Dn8rdh4ZkNQCwpump";
-  const SOLANA_RPC_ENDPOINT = "https://api.mainnet-beta.solana.com";
+  const SOLANA_RPC_ENDPOINT = "https://rpc.ankr.com/solana/3226dc3c471ff22f8355da4308ddd4a219b5ad67a62557acde28a539b94a550e";
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
