@@ -2,14 +2,12 @@
 import fs from 'fs';
 import path from 'path';
 
-// Функция чтения из db.json
 function readDB() {
-  const dbPath = path.join(process.cwd(), 'db.json'); 
-  const raw = fs.readFileSync(dbPath, 'utf8');      // читаем файл
-  return JSON.parse(raw);                           // парсим в объект
+  const dbPath = path.join(process.cwd(), 'db.json');
+  const raw = fs.readFileSync(dbPath, 'utf8');
+  return JSON.parse(raw);
 }
 
-// Функция записи в db.json
 function writeDB(data) {
   const dbPath = path.join(process.cwd(), 'db.json');
   fs.writeFileSync(dbPath, JSON.stringify(data, null, 2), 'utf8');
@@ -17,31 +15,30 @@ function writeDB(data) {
 
 export default function handler(req, res) {
   if (req.method === 'POST') {
-    const { publicKey, tokenBalance } = req.body;
+    const { publicKey, tokenBalance, nickname } = req.body;
 
-    if (!publicKey || tokenBalance === undefined) {
-      return res.status(400).json({ error: 'Missing data' });
+    if (!publicKey || tokenBalance === undefined || !nickname) {
+      return res.status(400).json({ error: 'Missing data (publicKey, tokenBalance or nickname)' });
     }
 
-    // Читаем текущее состояние из db.json
-    const db = readDB(); 
-    // Если db.json содержит поле "users", берём его, иначе создаём пустой массив
+    // Читаем текущее состояние
+    const db = readDB();
     const users = db.users || [];
 
     // Ищем, есть ли уже такой пользователь
-    const existingUserIndex = users.findIndex((u) => u.publicKey === publicKey);
-
-    if (existingUserIndex === -1) {
-      // Добавляем нового пользователя
-      users.push({ publicKey, tokenBalance });
+    const existingIndex = users.findIndex((u) => u.publicKey === publicKey);
+    if (existingIndex === -1) {
+      // Добавляем нового
+      users.push({ publicKey, tokenBalance, nickname });
     } else {
-      // Обновляем баланс
-      users[existingUserIndex].tokenBalance = tokenBalance;
+      // Обновляем поля
+      users[existingIndex].tokenBalance = tokenBalance;
+      users[existingIndex].nickname = nickname;
     }
 
-    // Перезаписываем db.json
-    const newDB = { ...db, users };  // сохраняем всех пользователей
-    writeDB(newDB);
+    // Сохраняем обратно
+    db.users = users;
+    writeDB(db);
 
     return res.status(200).json({ message: 'User registered/updated' });
   } else {
